@@ -18,9 +18,11 @@ define(['hogan', 'text', 'module'], function (hogan, text, module) {
     var _buildTemplate;
 
     function load(name, req, onLoad, config) {
+        var hgnConfig = Object.keys(pluginConfig).length ? pluginConfig : (config.hgn || {});
+
         // load text files with text plugin
-        getTemplateText(name, req, pluginConfig, function(data){
-            var compilationOptions = mixIn({}, pluginConfig.compilationOptions);
+        getTemplateText(name, req, hgnConfig, function(data){
+            var compilationOptions = mixIn({}, hgnConfig.compilationOptions);
 
             if (config.isBuild) {
                 // store compiled function if build
