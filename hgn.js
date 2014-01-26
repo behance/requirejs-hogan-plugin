@@ -7,7 +7,7 @@ define(['hogan', 'text', 'module'], function(hogan, text, module) {
 	DEFAULT_DELIMITER = '/',
 
 	_buildMap = {},
-	_buildTemplateText =
+	_buildTemplateText = (
 		'define("{{pluginName}}!{{moduleName}}", ["hogan"{{#partials}}, "{{pluginName}}!{{path}}"{{/partials}}], function(hogan){'+
 		'  var tmpl = new hogan.Template({{{fn}}}, "", hogan),'+
 		'      extend = function(a, b) { for (var k in b) { a[k] = b[k]; } return a; },'+
@@ -15,7 +15,8 @@ define(['hogan', 'text', 'module'], function(hogan, text, module) {
 		'  function render(context, partials, indent) { return tmpl.render(context, extend(parts, partials), indent); }'+
 		'  render.template = tmpl;'+
 		'  return render;'+
-		'});\n',
+		'});\n'
+	).replace(/\s+/g,' '),
 	_buildTemplate;
 
 	function load(name, req, onLoad, config){
