@@ -8,7 +8,7 @@ define(['hogan', 'text', 'module'], function(hogan, text, module) {
 
 	_buildMap = {},
 	_buildTemplateText =
-		'define("{{pluginName}}!{{moduleName}}", ["hogan"{{#partials}}, "{{pluginName}}!{{name}}"{{/partials}}], function(hogan){'+
+		'define("{{pluginName}}!{{moduleName}}", ["hogan"{{#partials}}, "{{pluginName}}!{{path}}"{{/partials}}], function(hogan){'+
 		'  var tmpl = new hogan.Template({{{fn}}}, "", hogan),'+
 		'      extend = function(a, b) { for (var k in b) { a[k] = b[k]; } return a; },'+
 		'      parts = { {{#partials}}"{{name}}": arguments[{{order}}].template,{{/partials}} };'+
@@ -27,7 +27,7 @@ define(['hogan', 'text', 'module'], function(hogan, text, module) {
 			compilationOptions = hgnConfig.compilationOptions? mixIn({}, hgnConfig.compilationOptions) : {},
 			delimiter = hgnConfig.delimiter != null ? hgnConfig.delimiter : DEFAULT_DELIMITER,
 			pathPrefix = hgnConfig.pathPrefix,
-			basePath;
+			basePath = fileName.substring(0, fileName.lastIndexOf('/')+1);
 
 		if (typeof pathPrefix !== 'string') {
 			pathPrefix = null;
@@ -39,27 +39,17 @@ define(['hogan', 'text', 'module'], function(hogan, text, module) {
 			pathPrefix += delimiter;
 		}
 
-		basePath = fileName.substring(0, fileName.lastIndexOf('/')+1);
-
 		// load text files with text plugin
 		text.get(req.toUrl(fileName), function(data) {
-			var compiled = {};
-
-			if (config.isBuild) {
-				// store compiled function if build
-				// and should always be a string
-				compilationOptions.asString = true;
-				compiled.asString = hogan.compile(data, compilationOptions);
-			}
-
 			// maybe it's required by some other plugin during build
 			// so return the compiled template even during build
-			var template = hogan.compile(data, compilationOptions),
-			render = bind(template.render, template),
-			partials = template.partials,
-			partialNames = {},
-			reqs = [],
-		   	p, name;
+			var compiled = {},
+				template = hogan.compile(data, compilationOptions),
+				render = bind(template.render, template),
+				partials = template.partials,
+				partialNames = {},
+				reqs = [],
+				p, name;
 
 			// using object map to eliminate duplicates
 			for (p in partials) {
@@ -77,25 +67,32 @@ define(['hogan', 'text', 'module'], function(hogan, text, module) {
 			}
 
 			compiled.partials = partialNames;
-			_buildMap[name] = compiled;
 
+			if (config.isBuild) {
+				// store compiled function if build
+				// and should always be a string
+				compilationOptions.asString = true;
+				compiled.asString = hogan.compile(data, compilationOptions);
+			}
+
+			_buildMap[name] = compiled;
 			reqs = keys(partialNames);
 
 			// if there are partials in the template, grab them
 			if (reqs.length) {
 				return require(map.call(reqs, function(p) { return module.id+'!'+partialNames[p]; }), function() {
-					var parts = {},
-					wrappedRender = function(context, partials, indent) {
-						return render(context, mixIn(parts, partials), indent);
-					};
+					var wrappedRender = function(context, partials, indent) {
+							return render(context, mixIn(parts, partials), indent);
+						},
+						parts = {}, i;
 
-					for (var i=0; i < reqs.length; ++i) {
+					for (i=0; i < reqs.length; ++i) {
 						parts[reqs[i]] = arguments[i].template;
 					}
 					wrappedRender.text = template.text;
 					wrappedRender.template = template;
 					onLoad(wrappedRender);
-				})
+				});
 			}
 
 			// add text property for debugging if needed.
@@ -125,9 +122,9 @@ define(['hogan', 'text', 'module'], function(hogan, text, module) {
 	}
 
 	function keys(obj) {
-		var keys = [], i;
-		for (i in obj) { keys.push(i); }
-		return keys;
+		var k = [], i;
+		for (i in obj) { k.push(i); }
+		return k;
 	}
 
 	// Array.prototype.map() polyfill from
@@ -137,15 +134,17 @@ define(['hogan', 'text', 'module'], function(hogan, text, module) {
 			throw new TypeError();
 		}
 
-		var t = Object(this);
-		var len = t.length >>> 0;
+		var t = Object(this),
+			len = t.length >>> 0,
+			res, thisArg, i;
+
 		if (typeof fun !== "function") {
 			throw new TypeError();
 		}
 
-		var res = new Array(len);
-		var thisArg = arguments.length >= 2 ? arguments[1] : void 0;
-		for (var i = 0; i < len; i++) {
+		res = new Array(len);
+		thisArg = arguments.length >= 2 ? arguments[1] : void 0;
+		for (i = 0; i < len; i++) {
 			// NOTE: Absolute correctness would demand Object.defineProperty
 			//       be used.  But this method is fairly new, and failure is
 			//       possible only if Object.prototype or Array.prototype
@@ -166,15 +165,15 @@ define(['hogan', 'text', 'module'], function(hogan, text, module) {
 				_buildTemplate = hogan.compile(_buildTemplateText);
 			}
 			var compiled = _buildMap[moduleName],
-			partials = [],
-			p;
+				partials = [],
+				p;
 
 			for (p in compiled.partials) {
 				partials.push({
 					name: p,
 					path: compiled.partials[p],
-				   	order: partials.length+1
-			   	});
+					order: partials.length+1
+				});
 			}
 
 			writeModule(_buildTemplate.render({
