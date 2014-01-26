@@ -6,7 +6,6 @@ define(['hogan', 'text', 'module'], function(hogan, text, module) {
 	var DEFAULT_EXTENSION = '.mustache',
 	DEFAULT_DELIMITER = '/',
 
-	pluginConfig = module.config(),
 	_buildMap = {},
 	_buildTemplateText =
 		'define("{{pluginName}}!{{moduleName}}", ["hogan"{{#partials}}, "{{pluginName}}!{{name}}"{{/partials}}], function(hogan){'+
@@ -20,12 +19,27 @@ define(['hogan', 'text', 'module'], function(hogan, text, module) {
 	_buildTemplate;
 
 	function load(name, req, onLoad, config){
-		var hgnConfig = Object.keys(pluginConfig).length ? pluginConfig : (config.hgn || {}),
-		    fileName = name + (hgnConfig && hgnConfig.templateExtension != null ?
-		    				   hgnConfig.templateExtension :
-		    				   DEFAULT_EXTENSION),
-		    compilationOptions = hgnConfig.compilationOptions? mixIn({}, hgnConfig.compilationOptions) : {}
-			delimiter = hgnConfig.delimiter || DEFAULT_DELIMITER;
+		var pluginConfig = module.config(),
+			hgnConfig = config.hgn || pluginConfig,
+			fileName = name + (hgnConfig && hgnConfig.templateExtension != null ?
+							   hgnConfig.templateExtension :
+							   DEFAULT_EXTENSION),
+			compilationOptions = hgnConfig.compilationOptions? mixIn({}, hgnConfig.compilationOptions) : {},
+			delimiter = hgnConfig.delimiter != null ? hgnConfig.delimiter : DEFAULT_DELIMITER,
+			pathPrefix = hgnConfig.pathPrefix,
+			basePath;
+
+		if (typeof pathPrefix !== 'string') {
+			pathPrefix = null;
+		}
+
+		// ensure pathPrefix ends with a trailing delimiter
+		if (pathPrefix &&
+			pathPrefix.lastIndexOf(delimiter) !== (pathPrefix.length - delimiter.length)) {
+			pathPrefix += delimiter;
+		}
+
+		basePath = fileName.substring(0, fileName.lastIndexOf('/')+1);
 
 		// load text files with text plugin
 		text.get(req.toUrl(fileName), function(data) {
@@ -45,26 +59,31 @@ define(['hogan', 'text', 'module'], function(hogan, text, module) {
 			partials = template.partials,
 			partialNames = {},
 			reqs = [],
-		   	p;
+		   	p, name;
 
 			// using object map to eliminate duplicates
 			for (p in partials) {
-				partialNames[partials[p].name] = ~partials[p].name.indexOf(delimiter);
+				name = partials[p].name;
+				partialNames[name] = name;
+				// skip if there's no delimiter
+				if (!~name.indexOf(delimiter)) { continue; }
+				// if using relative path
+				if (name.charAt(0) === '.') {
+					partialNames[name] = basePath + name;
+				}
+				else if (pathPrefix && name.charAt(0) !== '/') {
+					partialNames[name] = pathPrefix + name;
+				}
 			}
 
 			compiled.partials = partialNames;
 			_buildMap[name] = compiled;
 
-			// Object.keys, but filtering by the value
-			for (p in partialNames) {
-				if (partialNames[p]) {
-					reqs.push(p);
-				}
-			}
+			reqs = keys(partialNames);
 
 			// if there are partials in the template, grab them
 			if (reqs.length) {
-				return require(map.call(reqs, function(p) { return module.id+'!'+p; }), function() {
+				return require(map.call(reqs, function(p) { return module.id+'!'+partialNames[p]; }), function() {
 					var parts = {},
 					wrappedRender = function(context, partials, indent) {
 						return render(context, mixIn(parts, partials), indent);
@@ -103,6 +122,12 @@ define(['hogan', 'text', 'module'], function(hogan, text, module) {
 			}
 		}
 		return target;
+	}
+
+	function keys(obj) {
+		var keys = [], i;
+		for (i in obj) { keys.push(i); }
+		return keys;
 	}
 
 	// Array.prototype.map() polyfill from
@@ -145,9 +170,11 @@ define(['hogan', 'text', 'module'], function(hogan, text, module) {
 			p;
 
 			for (p in compiled.partials) {
-				if (compiled.partials[p]) {
-					partials.push({ name: p, order: partials.length+1 });
-				}
+				partials.push({
+					name: p,
+					path: compiled.partials[p],
+				   	order: partials.length+1
+			   	});
 			}
 
 			writeModule(_buildTemplate.render({
