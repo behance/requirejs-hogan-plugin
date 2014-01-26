@@ -81,7 +81,7 @@ define(['hogan', 'text', 'module'], function(hogan, text, module) {
 
 			// if there are partials in the template, grab them
 			if (reqs.length) {
-				return require(map.call(reqs, function(p) { return module.id+'!'+partialNames[p]; }), function() {
+				return req(map.call(reqs, function(p) { return module.id+'!'+partialNames[p]; }), function() {
 					var wrappedRender = function(context, partials, indent) {
 							return render(context, mixIn(parts, partials), indent);
 						},
