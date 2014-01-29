@@ -55,9 +55,9 @@ define(['hogan', 'text', 'module'], function(hogan, text, module) {
             // using object map to eliminate duplicates
             for (p in partials) {
                 name = partials[p].name;
-                partialNames[name] = name;
                 // skip if there's no delimiter
                 if (!~name.indexOf(delimiter)) { continue; }
+                partialNames[name] = name;
                 // if using relative path
                 if (name.charAt(0) === '.') {
                     partialNames[name] = basePath + name;
