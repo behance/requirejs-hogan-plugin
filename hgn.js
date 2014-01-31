@@ -11,8 +11,9 @@ define(['hogan', 'text', 'module'], function(hogan, text, module) {
         'define("{{pluginName}}!{{moduleName}}", ["hogan"{{#partials}}, "{{pluginName}}!{{path}}"{{/partials}}], function(hogan){'+
         '  var tmpl = new hogan.Template({{{fn}}}, "", hogan),'+
         '      extend = function(a, b) { for (var k in b) { a[k] = b[k]; } return a; },'+
-        '      parts = { {{#partials}}"{{name}}": arguments[{{order}}].template,{{/partials}} "": null};'+
-        '  function render(context, partials, indent) { return tmpl.render(context, extend(parts, partials), indent); }'+
+        '      parts = { {{#partials}}"{{name}}": arguments[{{order}}].template,{{/partials}} "": null},'+
+        '      render = function() { tmpl.render.apply(tmpl, arguments); };'+
+        '  tmpl.ri = function(context, partials, indent) { return this.r(context, extend(parts, partials), indent); };'+
         '  render.template = tmpl;'+
         '  return render;'+
         '});\n'
@@ -79,29 +80,26 @@ define(['hogan', 'text', 'module'], function(hogan, text, module) {
             _buildMap[moduleName] = compiled;
             reqs = keys(partialNames);
 
-            // if there are partials in the template, grab them
-            if (reqs.length) {
-                req(map.call(reqs, function(p) { return module.id+'!'+partialNames[p]; }), function() {
-                    var wrappedRender = function(context, partials, indent) {
-                            return render(context, mixIn(parts, partials), indent);
-                        },
-                        parts = {}, i;
-
-                    for (i=0; i < reqs.length; ++i) {
-                        parts[reqs[i]] = arguments[i] && arguments[i].template;
-                    }
-                    wrappedRender.text = template.text;
-                    wrappedRender.template = template;
-                    onLoad(wrappedRender);
-                });
-                return;
-            }
-
             // add text property for debugging if needed.
             // it's important to notice that this value won't be available
             // after build.
             render.text = template.text;
             render.template = template;
+
+            // if there are partials in the template, grab them
+            if (reqs.length) {
+                req(map.call(reqs, function(p) { return module.id+'!'+partialNames[p]; }), function() {
+                    var parts = {}, i;
+                    for (i=0; i < reqs.length; ++i) {
+                        parts[reqs[i]] = arguments[i] && arguments[i].template;
+                    }
+                    template.ri = function(context, partials, indent) {
+                      return this.r(context, mixIn(parts, partials), indent);
+                    };
+                    onLoad(render);
+                });
+                return;
+            }
             // return just the render method so it's easier to use
             onLoad(render);
         });
