@@ -1,7 +1,7 @@
 {
   "name": "requirejs-hogan-plugin",
   "description": "A requirejs wrapper for the mustache compiler.",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "keywords": [
     "mustache",
     "template",
