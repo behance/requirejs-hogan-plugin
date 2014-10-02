@@ -10,7 +10,7 @@
     "package.json"
   ],
   "dependencies": {
-    "hogan": "https://github.com/behance/hogan.js.git#~3.0.0",
+    "hogan": "https://github.com/behance/hogan.js.git#~3.0.4",
     "requirejs-text": "~2.0.12"
   }
 }
