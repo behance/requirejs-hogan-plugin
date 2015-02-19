@@ -20,7 +20,30 @@ define(['hogan', 'text', 'module'], function(hogan, text, module) {
     ).replace(/\s+/g,' '),
     _buildTemplate;
 
-    function load(moduleName, req, onLoad, config){
+    function load(moduleName, req, onLoad, config) {
+        function grabPartials(partialNames, partials) {
+            var p, name;
+            for (p in partials) {
+                name = partials[p].name;
+                // skip if there's no delimiter
+                if (!~name.indexOf(delimiter)) { continue; }
+                partialNames[name] = name;
+                // if using relative path
+                if (name.charAt(0) === '.') {
+                    partialNames[name] = basePath + name;
+                }
+                else if (pathPrefix && name.charAt(0) !== '/') {
+                    partialNames[name] = pathPrefix + name;
+                }
+
+                if(partials[p].partials) {
+                    grabPartials(partialNames, partials[p].partials);
+                }
+            }
+
+            return partialNames;
+        }
+
         var pluginConfig = module.config(),
             hgnConfig = config.hgn || pluginConfig,
             fileName = moduleName + (hgnConfig && hgnConfig.templateExtension != null ?
@@ -50,25 +73,9 @@ define(['hogan', 'text', 'module'], function(hogan, text, module) {
                 render = bind(template.render, template),
                 partials = template.partials,
                 partialNames = {},
-                reqs = [],
-                p, name;
+                reqs = [];
 
-            // using object map to eliminate duplicates
-            for (p in partials) {
-                name = partials[p].name;
-                // skip if there's no delimiter
-                if (!~name.indexOf(delimiter)) { continue; }
-                partialNames[name] = name;
-                // if using relative path
-                if (name.charAt(0) === '.') {
-                    partialNames[name] = basePath + name;
-                }
-                else if (pathPrefix && name.charAt(0) !== '/') {
-                    partialNames[name] = pathPrefix + name;
-                }
-            }
-
-            compiled.partials = partialNames;
+            compiled.partials = grabPartials(partialNames, partials);
 
             if (config.isBuild) {
                 // store compiled function if build
